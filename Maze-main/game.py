@@ -1,6 +1,6 @@
 from settings import *
 import time
-
+# hej lisa är bäst
 # PYGAME LOOP
 start_ticks = pygame.time.get_ticks()
 while True:
