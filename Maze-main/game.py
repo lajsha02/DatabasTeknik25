@@ -236,3 +236,18 @@ while True:
             main_menu.is_active = True
 
     pygame.display.update()
+
+
+SpotifyConnector sp = new SpotifyConnector("<DIN_CLIENT_ID>", "http://localhost:8888/callback");
+sp.login(); // öppnar webbläsaren för inloggning första gången
+
+playButton.addActionListener(e -> {
+    try {
+        sp.playUri("spotify:track:<TRACK_ID>", null); 
+    } catch (Exception ex) {
+        ex.printStackTrace();
+        // Visa felmeddelande i ditt UI
+    }
+});
+
+
