@@ -1,7 +1,19 @@
 from settings import *
 import time
+from Spotify import SpotifyButton 
+
 # hej lisa är bäst
 # PYGAME LOOP
+
+spotify_options = [
+    ("Lo-Fi Beats", "https://open.spotify.com/playlist/1h0CEZCm6IbFTbxThn6Xcs"),
+    ("Peaceful Piano", "https://open.spotify.com/playlist/37i9dQZF1DX4sWSpwq3LiO"),
+    ("Game Focus", "https://open.spotify.com/playlist/37i9dQZF1DWX83CujKHHOn"),
+    ("Open Spotify", "https://open.spotify.com/"),
+]
+spotify_btn_main = SpotifyButton(pos=(WINDOW_DIM[0] - 130, 60), options=spotify_options, width=220)
+spotify_btn_game = SpotifyButton(pos=(WINDOW_DIM[0] - 130, 110), options=spotify_options, width=220)
+
 start_ticks = pygame.time.get_ticks()
 while True:
     PygameEvents = pygame.event.get()
@@ -62,6 +74,16 @@ while True:
         screen.blit(MainMenuMazeText, MainMenuMazeText_rect)
         # Main Menu Buttons
         main_menu.Buttons()
+
+        # Spotify-knapp i menyn
+        spotify_btn_main.update(MousePosition, PygameEvents)
+        spotify_btn_main.draw(screen)
+
+        if MM_Quit.is_Clicked():
+            Quit()
+        elif MM_Play.is_Clicked():
+
+        
         if MM_Quit.is_Clicked():
             Quit()
         elif MM_Play.is_Clicked():
@@ -136,6 +158,12 @@ while True:
                 # Muted Symbol
                 screen.blit(SoundControlButtonImageOff.convert_alpha(),
                             SoundControlButtonImageOff.convert_alpha().get_rect(center=GameSoundButtonPos))
+
+            spotify_btn_game.update(MousePosition, PygameEvents)
+            spotify_btn_game.draw(screen)
+
+            if Game_Sound.is_Clicked():
+                GamePreferences.MusicState = not GamePreferences.MusicState
 
             if Game_Sound.is_Clicked():
                 GamePreferences.MusicState = not GamePreferences.MusicState
