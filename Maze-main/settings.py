@@ -9,6 +9,7 @@ import Modules.MainMenu as MainMenu
 import Modules.PlayGame as PlayGame
 import Modules.Scores as Scores
 import Modules.Preferences as Preferences
+import Modules.Countries as Countries  # <<< ADDED (module that provides COUNTRIES)
 
 # Suppress stderr
 sys.stderr = open(os.devnull, 'w')
@@ -212,3 +213,50 @@ SoundButtonDelay = 0.3
 
 GP_Back = MainMenu.MainMenuButton(screen, "BACK", ButtonsFontInactive, ButtonsFontActive, BackButtonBackground,
                                   BackButtonPos, ButtonSound)
+
+# -------------------- COUNTRIES: STATE + BUTTONS (ADDED) --------------------
+CountrySelectionActive = False
+SelectedCountry = None
+SelectedCities = []
+SelectedTargetCity = None
+
+# Title
+ChooseCountryFont = pygame.font.Font("media/fonts/Rubber-Duck.ttf", 64)
+ChooseCountryText = ChooseCountryFont.render("CHOOSE COUNTRY", True, "White")
+ChooseCountryPos = (WINDOW_DIM[0] / 2, 180)
+
+# Grid (12 buttons per page: 3 x 4)
+COUNTRY_BUTTON_SIZE = (350, 90)
+CountryButtonImage = LoadScaledImage("media/images/Buttons/MainMenuButton.png", scaling_dim=COUNTRY_BUTTON_SIZE)
+
+country_grid_positions = []
+start_x = WINDOW_DIM[0] / 2 - 400
+start_y = 260
+dx, dy = 400, 120
+for r in range(4):
+    for c in range(3):
+        country_grid_positions.append((start_x + c * dx, start_y + r * dy))
+
+COUNTRIES_PER_PAGE = len(country_grid_positions)  # 12
+CountryPage = 0
+
+CountryButtons = []
+for idx, entry in enumerate(Countries.COUNTRIES):
+    pos = country_grid_positions[idx % COUNTRIES_PER_PAGE]
+    btn = MainMenu.MainMenuButton(
+        screen,
+        entry["country"],
+        ButtonsFontInactive,
+        ButtonsFontActive,
+        CountryButtonImage,
+        pos,
+        ButtonSound
+    )
+    CountryButtons.append(btn)
+
+# Pagination + Back
+_nav_img = LoadScaledImage("media/images/Buttons/MainMenuButton.png", scaling_dim=(250, 90))
+CountryPrev = MainMenu.MainMenuButton(screen, "PREV", ButtonsFontInactive, ButtonsFontActive, _nav_img, (WINDOW_DIM[0]/2 - 350, WINDOW_DIM[1] - 120), ButtonSound)
+CountryNext = MainMenu.MainMenuButton(screen, "NEXT", ButtonsFontInactive, ButtonsFontActive, _nav_img, (WINDOW_DIM[0]/2 + 350, WINDOW_DIM[1] - 120), ButtonSound)
+CountryBack = MainMenu.MainMenuButton(screen, "BACK", ButtonsFontInactive, ButtonsFontActive, BackButtonBackground, BackButtonPos, ButtonSound)
+# ---------------------------------------------------------------------------

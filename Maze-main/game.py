@@ -1,6 +1,8 @@
-from settings import *
 import time
-# hej lisa är bäst
+import random
+import pygame
+from settings import *
+
 # PYGAME LOOP
 start_ticks = pygame.time.get_ticks()
 while True:
@@ -67,7 +69,8 @@ while True:
         elif MM_Play.is_Clicked():
             main_menu.is_active = False
             time.sleep(ButtonDelay)
-            Game.is_active = True
+            # Game.is_active = True                # <<< REMOVED (we go to country chooser first)
+            CountrySelectionActive = True          # <<< ADDED
         elif MM_Scores.is_Clicked():
             main_menu.is_active = False
             time.sleep(ButtonDelay)
@@ -76,6 +79,65 @@ while True:
             main_menu.is_active = False
             time.sleep(ButtonDelay)
             GamePreferences.is_active = True
+
+    # ---------------- COUNTRY SELECTION (ADDED) ----------------
+    if 'CountrySelectionActive' in globals() and CountrySelectionActive:
+        # Background (same animated style)
+        main_menu.BackgroundFrameIndex = (MillisecondsPassed % (
+            MainMenuBackgroundFrameTime * len(MainMenuBackground))) // MainMenuBackgroundFrameTime
+        main_menu.BackgroundDisplay(MainMenuBackground[main_menu.BackgroundFrameIndex])
+
+        # Title
+        ChooseCountryRect = ChooseCountryText.get_rect(center=ChooseCountryPos)
+        screen.blit(ChooseCountryText, ChooseCountryRect)
+
+        # Page slice
+        total = len(CountryButtons)
+        start = CountryPage * COUNTRIES_PER_PAGE
+        end = min(start + COUNTRIES_PER_PAGE, total)
+        page_buttons = CountryButtons[start:end]
+
+        # Draw buttons
+        for btn in page_buttons:
+            btn.display()
+
+        # Navigation
+        if total > COUNTRIES_PER_PAGE:
+            if CountryPage > 0:
+                CountryPrev.display()
+            if end < total:
+                CountryNext.display()
+        else:
+            CountryBack.display()
+
+        # Click handling
+        for i_btn, btn in enumerate(page_buttons):
+            if btn.is_Clicked():
+                time.sleep(ButtonDelay)
+                SelectedCountry = Countries.COUNTRIES[start + i_btn]["country"]
+                SelectedCities = Countries.COUNTRIES[start + i_btn]["cities"]
+                CountrySelectionActive = False
+                Game.is_active = True
+                Game.LevelScreen = True
+                break
+
+        if total > COUNTRIES_PER_PAGE:
+            if CountryPage > 0 and CountryPrev.is_Clicked():
+                CountryPage -= 1
+                time.sleep(ButtonDelay)
+            if end < total and CountryNext.is_Clicked():
+                CountryPage += 1
+                time.sleep(ButtonDelay)
+            if Game_Back.is_Clicked():
+                CountrySelectionActive = False
+                main_menu.is_active = True
+                time.sleep(BackButtonDelay)
+        else:
+            if CountryBack.is_Clicked():
+                CountrySelectionActive = False
+                main_menu.is_active = True
+                time.sleep(BackButtonDelay)
+    # -----------------------------------------------------------
 
     # The Game!
     if Game.is_active:
@@ -98,6 +160,17 @@ while True:
                     Game.Level = 2
                 elif GLB_Difficult.is_Clicked():
                     Game.Level = 3
+
+                # --- ADDED: choose a random target city from the selected country
+                try:
+                    if isinstance(SelectedCities, list) and SelectedCities:
+                        Game.TargetCity = random.choice(SelectedCities)
+                    else:
+                        Game.TargetCity = None
+                except NameError:
+                    Game.TargetCity = None
+                # ---------------------------------------------------------------
+
                 Game.GameScreen = True
                 Game.SetMazeLevel()
                 time.sleep(ButtonDelay)
@@ -122,6 +195,16 @@ while True:
                                                       GameStopwatchFont, GameStopwatchFont, TimeButtonImage,
                                                       StopWatchButtonPos)
             StopWatchButton.display()
+
+            # --- ADDED: “GO TO CITY” label under the stopwatch
+            target_label = ("GO TO " + Game.TargetCity.upper()) if getattr(Game, "TargetCity", None) else "FIND THE EXIT"
+            TargetButton = MainMenu.MainMenuButton(
+                screen, target_label,
+                GameStopwatchFont, GameStopwatchFont, TimeButtonImage,
+                (StopWatchButtonPos[0], StopWatchButtonPos[1] + 100)
+            )
+            TargetButton.display()
+            # -----------------------------------------------------
 
             # Change Background Button
             Game_ChangeBackground.display()
@@ -177,7 +260,6 @@ while True:
             Scores.UpdateScore(Game.StopwatchValue / 1000, Game.Level)
 
             # High Score String
-
             HighScoreString = ("NEW HIGH SCORE : " + str(int(Game.StopwatchValue / 1000)) + " SEC") if Scores.isUpdated else ("HIGH SCORE: " + Scores.HighScore(Game.Level) + " SEC")
 
             HighScoreButton = MainMenu.MainMenuButton(screen, HighScoreString, ButtonsFontInactive, ButtonsFontInactive,
