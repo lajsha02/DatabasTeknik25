@@ -9,6 +9,7 @@ import Modules.MainMenu as MainMenu
 import Modules.PlayGame as PlayGame
 import Modules.Scores as Scores
 import Modules.Preferences as Preferences
+from data.countries import *
 
 # Suppress stderr
 sys.stderr = open(os.devnull, 'w')
@@ -168,6 +169,47 @@ GLB_Medium = MainMenu.MainMenuButton(screen, "MEDIUM (40 X 40)", ButtonsFontInac
                                      MediumPos, ButtonSound)
 GLB_Difficult = MainMenu.MainMenuButton(screen, "DIFFICULT (60 X 60)", ButtonsFontInactive, ButtonsFontActive, MMButtonsImage,
                                         DifficultPos, ButtonSound)
+COLS = 3
+ROWS = 6
+PAGE_SIZE = COLS * ROWS
+ROW_SPACING = 80
+COL_SPACING = 280
+TOP_Y = 120
+CENTER_X = WINDOW_DIM[0] // 2
+LEFT_X = CENTER_X - ((COLS - 1) * COL_SPACING) // 2
+
+all_countries = sorted(COUNTRY_CITIES.keys(), key=lambda s: s.casefold())
+current_page = 0  # ändra vid knapptryck "Next"/"Prev"
+
+def build_country_buttons(page):
+    start = page * PAGE_SIZE
+    end = start + PAGE_SIZE
+    page_countries = all_countries[start:end]
+    buttons = []
+    for i, country in enumerate(page_countries):
+        col = i % COLS
+        row = i // COLS
+        x = LEFT_X + col * COL_SPACING
+        y = TOP_Y + row * ROW_SPACING
+        buttons.append(MainMenu.MainMenuButton(
+            screen, country, ButtonsFontInactive, ButtonsFontActive, MMButtonsImage, (x, y), ButtonSound
+        ))
+    return buttons
+
+country_buttons = build_country_buttons(current_page)
+
+# Exempel på sida-navigering (kalla när dina Next/Prev-knappar klickas)
+def next_page():
+    global current_page, country_buttons
+    if (current_page + 1) * PAGE_SIZE < len(all_countries):
+        current_page += 1
+        country_buttons = build_country_buttons(current_page)
+
+def prev_page():
+    global current_page, country_buttons
+    if current_page > 0:
+        current_page -= 1
+        country_buttons = build_country_buttons(current_page)
 
 GLB_Level_Back = MainMenu.MainMenuButton(screen, "BACK", ButtonsFontInactive, ButtonsFontActive, BackButtonBackground,
                                          BackButtonPos, ButtonSound)
