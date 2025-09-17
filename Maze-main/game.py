@@ -45,7 +45,20 @@ while True:
             pygame.mixer.music.load(IntroMusicAddress)
             pygame.mixer.music.set_volume(0.25 * int(GamePreferences.MusicState))
             pygame.mixer.music.play(-1)
+     # Login Screen
+if LoginScreen.is_active:
+    # Bakgrund (samma som MainMenu för visuell matchning)
+    main_menu.BackgroundDisplay(MainMenuBackground[0])
 
+    # Rita & hantera
+    LoginScreen.draw()
+    LoginScreen.update(PygameEvents, MousePosition)
+
+    # Klar → vidare till huvudmenyn
+    if LoginScreen.result == "login_ok":
+        LoginScreen.is_active = False
+        main_menu.is_active = True
+        
     # Main Menu
     if main_menu.is_active:
         # Setting the frame rate
@@ -76,6 +89,7 @@ while True:
             main_menu.is_active = False
             time.sleep(ButtonDelay)
             GamePreferences.is_active = True
+
 
     # The Game!
     if Game.is_active:
