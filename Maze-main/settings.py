@@ -7,9 +7,12 @@ import sys
 import os
 import Modules.MainMenu as MainMenu
 import Modules.PlayGame as PlayGame
-import Modules.Scores as Scores
+import Modules.ScoresDB as Scores
 import Modules.Preferences as Preferences
 import Modules.Countries as Countries  # <<< ADDED (module that provides COUNTRIES)
+import Modules.Login as Login
+import Modules.AuthDB as AuthDB
+
 
 # Suppress stderr
 sys.stderr = open(os.devnull, 'w')
@@ -21,6 +24,9 @@ with open('data/path.txt', 'a'):
 if not os.path.isfile('data/LeastTimes.txt'):
     with open('data/LeastTimes.txt', 'w') as f:
         f.write("1000\n1000\n1000")
+
+# Init DB (SQLite)
+AuthDB.init_db()
 
 # Initializing Pygame
 pygame.init()
@@ -37,7 +43,8 @@ def Quit():
 def LoadScaledImage(image_path: str, scaling_factor: float = 1.0, scaling_dim: tuple = (0, 0)):
     image = pygame.image.load(image_path)
     if scaling_dim != (0, 0):
-        resized_image = pygame.transform.scale(image, scaling_dim)
+        # säkerställ int-dimensioner
+        resized_image = pygame.transform.scale(image, (int(scaling_dim[0]), int(scaling_dim[1])))
     elif scaling_factor != 1:
         new_width = int(image.get_width() * scaling_factor)
         new_height = int(image.get_height() * scaling_factor)
@@ -155,6 +162,16 @@ MM_Quit = MainMenu.MainMenuButton(screen, "QUIT", ButtonsFontInactive, ButtonsFo
 #    Main Menu Screen
 main_menu = MainMenu.MainMenu(screen, (MM_Play, MM_Scores, MM_Preferences, MM_Quit))
 
+# Login screen
+LoginScreen = Login.Login(
+    screen=screen,
+    buttons_font_inactive=ButtonsFontInactive,
+    buttons_font_active=ButtonsFontActive,
+    button_image=MMButtonsImage,
+    title_font=MazeHeadingFont,
+    mm_button_sound=ButtonSound
+)
+
 # The GAME!!!
 PlayerImagesPath = "media/images/Player"
 MazeImagesPath = "media/images/MazeBackground"
@@ -188,12 +205,10 @@ GameBackButtonPos = ((screen.get_height() + screen.get_width()) / 2 + Game.XShif
 Game_Back = MainMenu.MainMenuButton(screen, "BACK", ButtonsFontInactive, ButtonsFontActive, BackButtonBackground,
                                     GameBackButtonPos, ButtonSound)
 
-
 GameButtonImage = LoadScaledImage("media/images/Buttons/MainMenuButton.png", scaling_dim=(300, 100))
 
 ChangeThemeButtonPos = ((screen.get_height() + screen.get_width()) / 2 + Game.XShift / 2, 300)
 Game_ChangeBackground = MainMenu.MainMenuButton(screen, "CHANGE THEME", ButtonsFontInactive, ButtonsFontActive, GameButtonImage, ChangeThemeButtonPos, ButtonSound)
-
 
 # Scores
 Scores = Scores.HighScores(screen, HighScoresCSV_Address, ButtonsFontActive)
@@ -214,7 +229,7 @@ SoundButtonDelay = 0.3
 GP_Back = MainMenu.MainMenuButton(screen, "BACK", ButtonsFontInactive, ButtonsFontActive, BackButtonBackground,
                                   BackButtonPos, ButtonSound)
 
-# -------------------- COUNTRIES: STATE + BUTTONS (ADDED) --------------------
+# -------------------- COUNTRIES: STATE + BUTTONS --------------------
 CountrySelectionActive = False
 SelectedCountry = None
 SelectedCities = []
@@ -259,4 +274,4 @@ _nav_img = LoadScaledImage("media/images/Buttons/MainMenuButton.png", scaling_di
 CountryPrev = MainMenu.MainMenuButton(screen, "PREV", ButtonsFontInactive, ButtonsFontActive, _nav_img, (WINDOW_DIM[0]/2 - 350, WINDOW_DIM[1] - 120), ButtonSound)
 CountryNext = MainMenu.MainMenuButton(screen, "NEXT", ButtonsFontInactive, ButtonsFontActive, _nav_img, (WINDOW_DIM[0]/2 + 350, WINDOW_DIM[1] - 120), ButtonSound)
 CountryBack = MainMenu.MainMenuButton(screen, "BACK", ButtonsFontInactive, ButtonsFontActive, BackButtonBackground, BackButtonPos, ButtonSound)
-# ---------------------------------------------------------------------------
+# --------------------------------------------------------------------
