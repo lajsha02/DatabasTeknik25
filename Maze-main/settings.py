@@ -7,9 +7,12 @@ import sys
 import os
 import Modules.MainMenu as MainMenu
 import Modules.PlayGame as PlayGame
-import Modules.Scores as Scores
+import Modules.ScoresDB as Scores
 import Modules.Preferences as Preferences
-from data.countries import *
+import Modules.Countries as Countries  # <<< ADDED (module that provides COUNTRIES)
+import Modules.Login as Login
+import Modules.AuthDB as AuthDB
+
 
 # Suppress stderr
 sys.stderr = open(os.devnull, 'w')
@@ -21,6 +24,9 @@ with open('data/path.txt', 'a'):
 if not os.path.isfile('data/LeastTimes.txt'):
     with open('data/LeastTimes.txt', 'w') as f:
         f.write("1000\n1000\n1000")
+
+# Init DB (SQLite)
+AuthDB.init_db()
 
 # Initializing Pygame
 pygame.init()
@@ -37,7 +43,8 @@ def Quit():
 def LoadScaledImage(image_path: str, scaling_factor: float = 1.0, scaling_dim: tuple = (0, 0)):
     image = pygame.image.load(image_path)
     if scaling_dim != (0, 0):
-        resized_image = pygame.transform.scale(image, scaling_dim)
+        # säkerställ int-dimensioner
+        resized_image = pygame.transform.scale(image, (int(scaling_dim[0]), int(scaling_dim[1])))
     elif scaling_factor != 1:
         new_width = int(image.get_width() * scaling_factor)
         new_height = int(image.get_height() * scaling_factor)
@@ -155,6 +162,16 @@ MM_Quit = MainMenu.MainMenuButton(screen, "QUIT", ButtonsFontInactive, ButtonsFo
 #    Main Menu Screen
 main_menu = MainMenu.MainMenu(screen, (MM_Play, MM_Scores, MM_Preferences, MM_Quit))
 
+# Login screen
+LoginScreen = Login.Login(
+    screen=screen,
+    buttons_font_inactive=ButtonsFontInactive,
+    buttons_font_active=ButtonsFontActive,
+    button_image=MMButtonsImage,
+    title_font=MazeHeadingFont,
+    mm_button_sound=ButtonSound
+)
+
 # The GAME!!!
 PlayerImagesPath = "media/images/Player"
 MazeImagesPath = "media/images/MazeBackground"
@@ -169,47 +186,6 @@ GLB_Medium = MainMenu.MainMenuButton(screen, "MEDIUM (40 X 40)", ButtonsFontInac
                                      MediumPos, ButtonSound)
 GLB_Difficult = MainMenu.MainMenuButton(screen, "DIFFICULT (60 X 60)", ButtonsFontInactive, ButtonsFontActive, MMButtonsImage,
                                         DifficultPos, ButtonSound)
-COLS = 3
-ROWS = 6
-PAGE_SIZE = COLS * ROWS
-ROW_SPACING = 80
-COL_SPACING = 280
-TOP_Y = 120
-CENTER_X = WINDOW_DIM[0] // 2
-LEFT_X = CENTER_X - ((COLS - 1) * COL_SPACING) // 2
-
-all_countries = sorted(COUNTRY_CITIES.keys(), key=lambda s: s.casefold())
-current_page = 0  # ändra vid knapptryck "Next"/"Prev"
-
-def build_country_buttons(page):
-    start = page * PAGE_SIZE
-    end = start + PAGE_SIZE
-    page_countries = all_countries[start:end]
-    buttons = []
-    for i, country in enumerate(page_countries):
-        col = i % COLS
-        row = i // COLS
-        x = LEFT_X + col * COL_SPACING
-        y = TOP_Y + row * ROW_SPACING
-        buttons.append(MainMenu.MainMenuButton(
-            screen, country, ButtonsFontInactive, ButtonsFontActive, MMButtonsImage, (x, y), ButtonSound
-        ))
-    return buttons
-
-country_buttons = build_country_buttons(current_page)
-
-# Exempel på sida-navigering (kalla när dina Next/Prev-knappar klickas)
-def next_page():
-    global current_page, country_buttons
-    if (current_page + 1) * PAGE_SIZE < len(all_countries):
-        current_page += 1
-        country_buttons = build_country_buttons(current_page)
-
-def prev_page():
-    global current_page, country_buttons
-    if current_page > 0:
-        current_page -= 1
-        country_buttons = build_country_buttons(current_page)
 
 GLB_Level_Back = MainMenu.MainMenuButton(screen, "BACK", ButtonsFontInactive, ButtonsFontActive, BackButtonBackground,
                                          BackButtonPos, ButtonSound)
@@ -229,12 +205,10 @@ GameBackButtonPos = ((screen.get_height() + screen.get_width()) / 2 + Game.XShif
 Game_Back = MainMenu.MainMenuButton(screen, "BACK", ButtonsFontInactive, ButtonsFontActive, BackButtonBackground,
                                     GameBackButtonPos, ButtonSound)
 
-
 GameButtonImage = LoadScaledImage("media/images/Buttons/MainMenuButton.png", scaling_dim=(300, 100))
 
 ChangeThemeButtonPos = ((screen.get_height() + screen.get_width()) / 2 + Game.XShift / 2, 300)
 Game_ChangeBackground = MainMenu.MainMenuButton(screen, "CHANGE THEME", ButtonsFontInactive, ButtonsFontActive, GameButtonImage, ChangeThemeButtonPos, ButtonSound)
-
 
 # Scores
 Scores = Scores.HighScores(screen, HighScoresCSV_Address, ButtonsFontActive)
@@ -254,3 +228,50 @@ SoundButtonDelay = 0.3
 
 GP_Back = MainMenu.MainMenuButton(screen, "BACK", ButtonsFontInactive, ButtonsFontActive, BackButtonBackground,
                                   BackButtonPos, ButtonSound)
+
+# -------------------- COUNTRIES: STATE + BUTTONS --------------------
+CountrySelectionActive = False
+SelectedCountry = None
+SelectedCities = []
+SelectedTargetCity = None
+
+# Title
+ChooseCountryFont = pygame.font.Font("media/fonts/Rubber-Duck.ttf", 64)
+ChooseCountryText = ChooseCountryFont.render("CHOOSE COUNTRY", True, "White")
+ChooseCountryPos = (WINDOW_DIM[0] / 2, 180)
+
+# Grid (12 buttons per page: 3 x 4)
+COUNTRY_BUTTON_SIZE = (350, 90)
+CountryButtonImage = LoadScaledImage("media/images/Buttons/MainMenuButton.png", scaling_dim=COUNTRY_BUTTON_SIZE)
+
+country_grid_positions = []
+start_x = WINDOW_DIM[0] / 2 - 400
+start_y = 260
+dx, dy = 400, 120
+for r in range(4):
+    for c in range(3):
+        country_grid_positions.append((start_x + c * dx, start_y + r * dy))
+
+COUNTRIES_PER_PAGE = len(country_grid_positions)  # 12
+CountryPage = 0
+
+CountryButtons = []
+for idx, entry in enumerate(Countries.COUNTRIES):
+    pos = country_grid_positions[idx % COUNTRIES_PER_PAGE]
+    btn = MainMenu.MainMenuButton(
+        screen,
+        entry["country"],
+        ButtonsFontInactive,
+        ButtonsFontActive,
+        CountryButtonImage,
+        pos,
+        ButtonSound
+    )
+    CountryButtons.append(btn)
+
+# Pagination + Back
+_nav_img = LoadScaledImage("media/images/Buttons/MainMenuButton.png", scaling_dim=(250, 90))
+CountryPrev = MainMenu.MainMenuButton(screen, "PREV", ButtonsFontInactive, ButtonsFontActive, _nav_img, (WINDOW_DIM[0]/2 - 350, WINDOW_DIM[1] - 120), ButtonSound)
+CountryNext = MainMenu.MainMenuButton(screen, "NEXT", ButtonsFontInactive, ButtonsFontActive, _nav_img, (WINDOW_DIM[0]/2 + 350, WINDOW_DIM[1] - 120), ButtonSound)
+CountryBack = MainMenu.MainMenuButton(screen, "BACK", ButtonsFontInactive, ButtonsFontActive, BackButtonBackground, BackButtonPos, ButtonSound)
+# --------------------------------------------------------------------
