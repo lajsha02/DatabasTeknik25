@@ -1,6 +1,6 @@
 # Modules/Login.py
 import pygame, json, os
-from .InputBox import InputBox
+from .inputbox import InputBox
 
 USERS_FILE = "data/users.json"
 

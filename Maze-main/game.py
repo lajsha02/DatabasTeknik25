@@ -1,19 +1,14 @@
+import time 
+import random
+import pygame
 from settings import *
-import time
-from Spotify import SpotifyButton 
 
-# hej lisa är bäst
+# ADDED: edge-state för country-nav (behöver leva över frames)
+_prev_country_prev_clicked = False
+_prev_country_next_clicked = False
+_prev_country_back_clicked = False
+
 # PYGAME LOOP
-
-spotify_options = [
-    ("Lo-Fi Beats", "https://open.spotify.com/playlist/1h0CEZCm6IbFTbxThn6Xcs"),
-    ("Peaceful Piano", "https://open.spotify.com/playlist/37i9dQZF1DX4sWSpwq3LiO"),
-    ("Game Focus", "https://open.spotify.com/playlist/37i9dQZF1DWX83CujKHHOn"),
-    ("Open Spotify", "https://open.spotify.com/"),
-]
-spotify_btn_main = SpotifyButton(pos=(WINDOW_DIM[0] - 130, 60), options=spotify_options, width=220)
-spotify_btn_game = SpotifyButton(pos=(WINDOW_DIM[0] - 130, 110), options=spotify_options, width=220)
-
 start_ticks = pygame.time.get_ticks()
 while True:
     PygameEvents = pygame.event.get()
@@ -45,21 +40,43 @@ while True:
         screen.blit(IntroLoadingBarBackground, IntroLoadingBarBackground_rect)
 
         xLength = 480 * MillisecondsPassed / ((IntroTime - 0.5) * 1000)
-        IntroLoadingBar = LoadScaledImage("media/images/IntroLoadingBar/IntroLoadingBar.png", scaling_dim=(xLength, 40))
+        IntroLoadingBar = LoadScaledImage("media/images/IntroLoadingBar/IntroLoadingBar.png", scaling_dim=(int(xLength), 40))  # CHANGED
         IntroLoadingBar_rect = IntroLoadingBar.get_rect()
         IntroLoadingBar_rect.midleft = (IntroLoadingBarBackground_rect.midleft[0] + 10, IntroLoadingBarBackground_rect.midleft[1])
         screen.blit(IntroLoadingBar, IntroLoadingBar_rect)
     elif int((MillisecondsPassed / 1000) * 4) / 4 == IntroTime - 0.25:
         screen.fill("Black")
     elif int((MillisecondsPassed / 1000) * 4) / 4 == IntroTime + 0.25:
-        main_menu.is_active = True
+        LoginScreen.is_active = True
+        main_menu.is_active = False
         if not pygame.mixer.music.get_busy():
             pygame.mixer.music.load(IntroMusicAddress)
             pygame.mixer.music.set_volume(0.25 * int(GamePreferences.MusicState))
             pygame.mixer.music.play(-1)
+        if not pygame.mixer.music.get_busy():
+            pygame.mixer.music.load(IntroMusicAddress)
+            pygame.mixer.music.set_volume(0.25 * int(GamePreferences.MusicState))
+            pygame.mixer.music.play(-1)
+    
+    # Login Screen
+    if LoginScreen.is_active:
+        # Visuell matchning: samma bakgrund som menyn
+        main_menu.BackgroundDisplay(MainMenuBackground[0])
+
+        # Rita & hantera
+        LoginScreen.draw()
+        LoginScreen.update(PygameEvents, MousePosition)
+
+        # Klar → vidare till huvudmenyn
+        if LoginScreen.result == "login_ok":
+            LoginScreen.is_active = False
+            # Sätt spelarnamnet så det följer med i spelet
+            Game.PlayerName = LoginScreen.username
+            main_menu.is_active = True
+
 
     # Main Menu
-    if main_menu.is_active:
+    if main_menu.is_active and not LoginScreen.is_active:
         # Setting the frame rate
         main_menu.BackgroundFrameIndex = (MillisecondsPassed % (
                 MainMenuBackgroundFrameTime * len(MainMenuBackground))) // MainMenuBackgroundFrameTime
@@ -74,22 +91,13 @@ while True:
         screen.blit(MainMenuMazeText, MainMenuMazeText_rect)
         # Main Menu Buttons
         main_menu.Buttons()
-
-        # Spotify-knapp i menyn
-        spotify_btn_main.update(MousePosition, PygameEvents)
-        spotify_btn_main.draw(screen)
-
-        if MM_Quit.is_Clicked():
-            Quit()
-        elif MM_Play.is_Clicked():
-
-        
         if MM_Quit.is_Clicked():
             Quit()
         elif MM_Play.is_Clicked():
             main_menu.is_active = False
             time.sleep(ButtonDelay)
-            Game.is_active = True
+            # Game.is_active = True                # <<< REMOVED (we go to country chooser first)
+            CountrySelectionActive = True          # <<< ADDED
         elif MM_Scores.is_Clicked():
             main_menu.is_active = False
             time.sleep(ButtonDelay)
@@ -98,6 +106,99 @@ while True:
             main_menu.is_active = False
             time.sleep(ButtonDelay)
             GamePreferences.is_active = True
+            if GameOver_Back.is_Clicked():
+                Game.MazeGame = None
+                Scores.GameDone = False
+                Game.is_active = False
+                Game.GameOverScreen = False
+                Game.LevelScreen = True
+                main_menu.is_active = True
+                Game.db_recorded = False  # <-- återställ
+                time.sleep(BackButtonDelay)
+                pygame.mixer.music.stop()
+                pygame.mixer.music.load(IntroMusicAddress)
+                pygame.mixer.music.set_volume(0.25 * int(GamePreferences.MusicState))
+                pygame.mixer.music.play(-1)
+
+
+    # ---------------- COUNTRY SELECTION (FIXED MINIMAL) ----------------
+    if 'CountrySelectionActive' in globals() and CountrySelectionActive:
+        # Background (same animated style)
+        main_menu.BackgroundFrameIndex = (MillisecondsPassed % (
+            MainMenuBackgroundFrameTime * len(MainMenuBackground))) // MainMenuBackgroundFrameTime
+        main_menu.BackgroundDisplay(MainMenuBackground[main_menu.BackgroundFrameIndex])
+
+        # Title
+        ChooseCountryRect = ChooseCountryText.get_rect(center=ChooseCountryPos)
+        screen.blit(ChooseCountryText, ChooseCountryRect)
+
+        total = len(CountryButtons)
+
+        # ADDED: clamp av CountryPage innan vi räknar slice
+        per = COUNTRIES_PER_PAGE  # ADDED
+        max_page = 0 if total == 0 else ((total - 1) // per)  # ADDED
+        if CountryPage < 0: CountryPage = 0  # ADDED
+        if CountryPage > max_page: CountryPage = max_page  # ADDED
+
+        # Page slice
+        start = CountryPage * COUNTRIES_PER_PAGE
+        end = min(start + COUNTRIES_PER_PAGE, total)
+        page_buttons = CountryButtons[start:end]
+
+        # Draw buttons
+        for btn in page_buttons:
+            btn.display()
+
+        # Navigation
+        if total > COUNTRIES_PER_PAGE:
+            if CountryPage > 0:
+                CountryPrev.display()
+            if end < total:
+                CountryNext.display()
+        else:
+            CountryBack.display()
+
+        # ADDED: Edge-trigger för navknappar
+        cur_prev = (CountryPage > 0 and CountryPrev.is_Clicked()) if total > COUNTRIES_PER_PAGE else False  # ADDED
+        cur_next = (end < total and CountryNext.is_Clicked()) if total > COUNTRIES_PER_PAGE else False       # ADDED
+        cur_back = CountryBack.is_Clicked() if not (total > COUNTRIES_PER_PAGE) else False                   # ADDED
+
+        prev_edge = cur_prev and not _prev_country_prev_clicked   # ADDED
+        next_edge = cur_next and not _prev_country_next_clicked   # ADDED
+        back_edge = cur_back and not _prev_country_back_clicked   # ADDED
+
+        _prev_country_prev_clicked = cur_prev   # ADDED
+        _prev_country_next_clicked = cur_next   # ADDED
+        _prev_country_back_clicked = cur_back   # ADDED
+
+        # Click handling
+        for i_btn, btn in enumerate(page_buttons):
+            if btn.is_Clicked():
+                time.sleep(ButtonDelay)
+                SelectedCountry = Countries.COUNTRIES[start + i_btn]["country"]
+                SelectedCities = Countries.COUNTRIES[start + i_btn]["cities"]
+                CountrySelectionActive = False
+                Game.is_active = True
+                Game.LevelScreen = True
+                break
+
+        if total > COUNTRIES_PER_PAGE:
+            if prev_edge:                              # CHANGED (edge + clamp)
+                CountryPage = max(0, CountryPage - 1) # CHANGED
+                time.sleep(ButtonDelay)
+            if next_edge:                              # CHANGED (edge + clamp)
+                CountryPage = min(max_page, CountryPage + 1)  # CHANGED
+                time.sleep(ButtonDelay)
+            if back_edge:                              # CHANGED (använd CountryBack i denna vy)
+                CountrySelectionActive = False
+                main_menu.is_active = True
+                time.sleep(BackButtonDelay)
+        else:
+            if back_edge:  # CHANGED
+                CountrySelectionActive = False
+                main_menu.is_active = True
+                time.sleep(BackButtonDelay)
+    # -----------------------------------------------------------
 
     # The Game!
     if Game.is_active:
@@ -120,6 +221,17 @@ while True:
                     Game.Level = 2
                 elif GLB_Difficult.is_Clicked():
                     Game.Level = 3
+
+                # --- ADDED: choose a random target city from the selected country
+                try:
+                    if isinstance(SelectedCities, list) and SelectedCities:
+                        Game.TargetCity = random.choice(SelectedCities)
+                    else:
+                        Game.TargetCity = None
+                except NameError:
+                    Game.TargetCity = None
+                # ---------------------------------------------------------------
+
                 Game.GameScreen = True
                 Game.SetMazeLevel()
                 time.sleep(ButtonDelay)
@@ -145,6 +257,16 @@ while True:
                                                       StopWatchButtonPos)
             StopWatchButton.display()
 
+            # --- ADDED: “GO TO CITY” label under the stopwatch
+            target_label = ("GO TO " + Game.TargetCity.upper()) if getattr(Game, "TargetCity", None) else "FIND THE EXIT"
+            TargetButton = MainMenu.MainMenuButton(
+                screen, target_label,
+                GameStopwatchFont, GameStopwatchFont, TimeButtonImage,
+                (StopWatchButtonPos[0], StopWatchButtonPos[1] + 100)
+            )
+            TargetButton.display()
+            # -----------------------------------------------------
+
             # Change Background Button
             Game_ChangeBackground.display()
             # Back Button
@@ -158,12 +280,6 @@ while True:
                 # Muted Symbol
                 screen.blit(SoundControlButtonImageOff.convert_alpha(),
                             SoundControlButtonImageOff.convert_alpha().get_rect(center=GameSoundButtonPos))
-
-            spotify_btn_game.update(MousePosition, PygameEvents)
-            spotify_btn_game.draw(screen)
-
-            if Game_Sound.is_Clicked():
-                GamePreferences.MusicState = not GamePreferences.MusicState
 
             if Game_Sound.is_Clicked():
                 GamePreferences.MusicState = not GamePreferences.MusicState
@@ -203,9 +319,26 @@ while True:
 
             # High Score
             Scores.UpdateScore(Game.StopwatchValue / 1000, Game.Level)
+            if hasattr(LoginScreen, "user_id") and LoginScreen.user_id is not None:
+                if not hasattr(Game, "db_recorded") or not Game.db_recorded:
+                    try:
+                        AuthDB.record_score(LoginScreen.user_id, Game.Level, int(Game.StopwatchValue / 1000))
+                    except Exception:
+                        pass
+                    Game.db_recorded = True
+
+
+                    
+                # Skriv score till DB en (1) gång
+            if hasattr(LoginScreen, "user_id") and LoginScreen.user_id is not None:
+                if not hasattr(Game, "db_recorded") or not Game.db_recorded:
+                    try:
+                        AuthDB.record_score(LoginScreen.user_id, Game.Level, int(Game.StopwatchValue / 1000))
+                    except Exception:
+                        pass
+                    Game.db_recorded = True
 
             # High Score String
-
             HighScoreString = ("NEW HIGH SCORE : " + str(int(Game.StopwatchValue / 1000)) + " SEC") if Scores.isUpdated else ("HIGH SCORE: " + Scores.HighScore(Game.Level) + " SEC")
 
             HighScoreButton = MainMenu.MainMenuButton(screen, HighScoreString, ButtonsFontInactive, ButtonsFontInactive,
@@ -264,8 +397,3 @@ while True:
             main_menu.is_active = True
 
     pygame.display.update()
-
-
-
-
-
