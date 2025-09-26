@@ -4,31 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="41386018-63fd-4435-8991-13a7e7b7ee22" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/Maze-main/media/images/Player/danne jao spel/11.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Maze-main/media/images/Player/danne jao spel/15.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Maze-main/media/images/Player/danne jao spel/3.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Maze-main/media/images/Player/danne jao spel/7.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Maze-main/game.py" beforeDir="false" afterPath="$PROJECT_DIR$/Maze-main/game.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Maze-main/media/images/Player/down/1.png" beforeDir="false" afterPath="$PROJECT_DIR$/Maze-main/media/images/Player/down/1.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Maze-main/media/images/Player/down/2.png" beforeDir="false" afterPath="$PROJECT_DIR$/Maze-main/media/images/Player/down/2.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Maze-main/media/images/Player/down/3.png" beforeDir="false" afterPath="$PROJECT_DIR$/Maze-main/media/images/Player/down/3.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Maze-main/media/images/Player/down/4.png" beforeDir="false" afterPath="$PROJECT_DIR$/Maze-main/media/images/Player/down/4.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Maze-main/media/images/Player/left/5.png" beforeDir="false" afterPath="$PROJECT_DIR$/Maze-main/media/images/Player/left/5.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Maze-main/media/images/Player/left/6.png" beforeDir="false" afterPath="$PROJECT_DIR$/Maze-main/media/images/Player/left/6.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Maze-main/media/images/Player/left/7.png" beforeDir="false" afterPath="$PROJECT_DIR$/Maze-main/media/images/Player/left/7.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Maze-main/media/images/Player/left/8.png" beforeDir="false" afterPath="$PROJECT_DIR$/Maze-main/media/images/Player/left/8.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Maze-main/media/images/Player/right/10.png" beforeDir="false" afterPath="$PROJECT_DIR$/Maze-main/media/images/Player/right/10.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Maze-main/media/images/Player/right/11.png" beforeDir="false" afterPath="$PROJECT_DIR$/Maze-main/media/images/Player/right/11.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Maze-main/media/images/Player/right/12.png" beforeDir="false" afterPath="$PROJECT_DIR$/Maze-main/media/images/Player/right/12.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Maze-main/media/images/Player/right/9.png" beforeDir="false" afterPath="$PROJECT_DIR$/Maze-main/media/images/Player/right/9.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Maze-main/media/images/Player/up/13.png" beforeDir="false" afterPath="$PROJECT_DIR$/Maze-main/media/images/Player/up/13.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Maze-main/media/images/Player/up/14.png" beforeDir="false" afterPath="$PROJECT_DIR$/Maze-main/media/images/Player/up/14.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Maze-main/media/images/Player/up/15.png" beforeDir="false" afterPath="$PROJECT_DIR$/Maze-main/media/images/Player/up/15.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Maze-main/media/images/Player/up/16.png" beforeDir="false" afterPath="$PROJECT_DIR$/Maze-main/media/images/Player/up/16.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Maze-main/settings.py" beforeDir="false" afterPath="$PROJECT_DIR$/Maze-main/settings.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Maze-main/venv/pyvenv.cfg" beforeDir="false" afterPath="$PROJECT_DIR$/Maze-main/venv/pyvenv.cfg" afterDir="false" />
-    </list>
+    <list default="true" id="41386018-63fd-4435-8991-13a7e7b7ee22" name="Changes" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -51,6 +27,7 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
+<<<<<<< Updated upstream
   <component name="PropertiesComponent">{
   &quot;keyToString&quot;: {
     &quot;Python.python -m venv venv.executor&quot;: &quot;Run&quot;,
@@ -64,6 +41,21 @@
     &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
     &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+=======
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Python.python -m venv venv.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "Mossi",
+    "last_opened_file_path": "/Users/lisadahl/Documents/GitHub/DatabasTeknik25/Maze-main/media/images/Player/danne jao spel",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "vue.rearranger.settings.migration": "true"
+>>>>>>> Stashed changes
   }
 }</component>
   <component name="RecentsManager">
