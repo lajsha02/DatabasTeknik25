@@ -2,11 +2,24 @@ import time
 import random
 import pygame
 from settings import *
+from Modules import AuthDB  # <-- ADDED: progress & user lookup från pickle
 
 # ADDED: edge-state för country-nav (behöver leva över frames)
 _prev_country_prev_clicked = False
 _prev_country_next_clicked = False
 _prev_country_back_clicked = False
+
+# ADDED: ladda och cacha låsikon
+LOCK_IMAGE_PATH = "media/images/buttons/lock.png"
+_lock_img = None
+def _lock_icon_surface():
+    global _lock_img
+    if _lock_img is None:
+        try:
+            _lock_img = pygame.image.load(LOCK_IMAGE_PATH).convert_alpha()
+        except Exception:
+            _lock_img = None
+    return _lock_img
 
 # PYGAME LOOP
 start_ticks = pygame.time.get_ticks()
@@ -145,9 +158,44 @@ while True:
         end = min(start + COUNTRIES_PER_PAGE, total)
         page_buttons = CountryButtons[start:end]
 
-        # Draw buttons
-        for btn in page_buttons:
+        # Draw buttons ------------- (progress-lås + LÅSIKON) -------------
+        for i_btn, btn in enumerate(page_buttons):
             btn.display()
+            country_id = Countries.COUNTRIES[start + i_btn]["country"]
+
+            # hämta user_id från spelarnamn utan att röra login.py
+            uid = None
+            if hasattr(Game, "PlayerName") and Game.PlayerName:
+                try:
+                    uid = AuthDB.user_id_by_username(str(Game.PlayerName))
+                except Exception:
+                    uid = None
+
+            # UNLOCK RULES: 1) bana 1 alltid öppen
+            #               2) denna bana redan klar
+            #               3) föregående bana klar → lås upp denna
+            unlocked = False
+            idx = start + i_btn
+            if idx == 0:
+                unlocked = True
+            else:
+                if uid is not None and AuthDB.has_access(uid, country_id):
+                    unlocked = True
+                else:
+                    prev_id = Countries.COUNTRIES[idx - 1]["country"]
+                    if uid is not None and AuthDB.has_access(uid, prev_id):
+                        unlocked = True
+
+            if not unlocked:
+                # Rita en låsikon centrerad på knappen (ca 80% av min(rect.w, rect.h))
+                rect = getattr(btn, "ButtonRect", None) or getattr(btn, "rect", None)
+                icon = _lock_icon_surface()
+                if rect and icon:
+                    size = int(min(rect.width, rect.height) * 0.8)
+                    if size > 0:
+                        icon_scaled = pygame.transform.smoothscale(icon, (size, size))
+                        screen.blit(icon_scaled, (rect.centerx - size // 2, rect.centery - size // 2))
+        # -----------------------------------------------------------------
 
         # Navigation
         if total > COUNTRIES_PER_PAGE:
@@ -171,15 +219,42 @@ while True:
         _prev_country_next_clicked = cur_next   # ADDED
         _prev_country_back_clicked = cur_back   # ADDED
 
-        # Click handling
+        # Click handling (ignorera klick på låsta)
         for i_btn, btn in enumerate(page_buttons):
             if btn.is_Clicked():
+                country_id = Countries.COUNTRIES[start + i_btn]["country"]
+
+                uid = None
+                if hasattr(Game, "PlayerName") and Game.PlayerName:
+                    try:
+                        uid = AuthDB.user_id_by_username(str(Game.PlayerName))
+                    except Exception:
+                        uid = None
+
+                # UNLOCK RULES (samma som vid ritning)
+                unlocked = False
+                idx = start + i_btn
+                if idx == 0:
+                    unlocked = True
+                else:
+                    if uid is not None and AuthDB.has_access(uid, country_id):
+                        unlocked = True
+                    else:
+                        prev_id = Countries.COUNTRIES[idx - 1]["country"]
+                        if uid is not None and AuthDB.has_access(uid, prev_id):
+                            unlocked = True
+
+                if not unlocked:
+                    continue  # låst → gör inget
+
                 time.sleep(ButtonDelay)
-                SelectedCountry = Countries.COUNTRIES[start + i_btn]["country"]
+                SelectedCountry = country_id
                 SelectedCities = Countries.COUNTRIES[start + i_btn]["cities"]
                 CountrySelectionActive = False
                 Game.is_active = True
                 Game.LevelScreen = True
+                # FIX: ny runda startar → progress får sparas igen
+                Game.progress_recorded = False  # <-- FIX: nollställ per runda
                 break
 
         if total > COUNTRIES_PER_PAGE:
@@ -344,6 +419,24 @@ while True:
             HighScoreButton = MainMenu.MainMenuButton(screen, HighScoreString, ButtonsFontInactive, ButtonsFontInactive,
                                                       MMButtonsImage, HighScoreButtonPos)
             HighScoreButton.display()
+
+            # --- SPARA PROGRESS: exakt en gång per runda ---
+            try:
+                if not hasattr(Game, "progress_recorded"):
+                    Game.progress_recorded = False  # defensivt default
+
+                uid = None
+                if hasattr(LoginScreen, "user_id") and LoginScreen.user_id is not None:
+                    uid = LoginScreen.user_id
+                elif hasattr(Game, "PlayerName") and Game.PlayerName:
+                    uid = AuthDB.user_id_by_username(str(Game.PlayerName))
+
+                if (uid is not None) and (not Game.progress_recorded) and ('SelectedCountry' in globals()) and SelectedCountry:
+                    AuthDB.add_country_progress(uid, SelectedCountry)
+                    Game.progress_recorded = True  # <-- FIX: blockera fler sparningar samma runda
+            except Exception:
+                pass
+            # ------------------------------------------------
 
             # Back to Main Menu
             if GameOver_Back.is_Clicked():

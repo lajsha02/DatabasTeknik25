@@ -1,126 +1,153 @@
-# Modules/AuthDB.py
-import sqlite3, os, hashlib, secrets, time
+# Modules/AuthDB.py (pickle-based storage + per-user progress)
+import os, hashlib, secrets, time, pickle
+from typing import List, Tuple, Optional
 
-DB_PATH = "data/game.db"
+# Behåll samma namn men byt till pickle-fil
+DB_PATH = "data/game.pickle"
 
-def _connect():
+# ---------- Intern hjälp ----------
+def _ensure_dir():
     os.makedirs("data", exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute("PRAGMA foreign_keys=ON")
-    return conn
 
+def _default_db():
+    return {"users": [], "scores": [], "counters": {"users": 0, "scores": 0}}
+
+def _load_db():
+    _ensure_dir()
+    if not os.path.exists(DB_PATH):
+        return _default_db()
+    with open(DB_PATH, "rb") as f:
+        db = pickle.load(f)
+    # Framåtkompatibilitet
+    if "users" not in db: db["users"] = []
+    if "scores" not in db: db["scores"] = []
+    if "counters" not in db: db["counters"] = {"users": 0, "scores": 0}
+    # Säkerställ progress på alla users
+    for u in db["users"]:
+        if "progress" not in u:
+            u["progress"] = []
+    return db
+
+def _save_db(db):
+    with open(DB_PATH, "wb") as f:
+        pickle.dump(db, f)
+
+# Bibehållen signatur – gör inget i pickle-läget
+def _connect():
+    return None
+
+# ---------- Publika API:t (oförändrade funktionsnamn) ----------
 def init_db():
-    conn = _connect()
-    cur = conn.cursor()
-    # Users
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS users(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT NOT NULL UNIQUE,
-            pw_salt BLOB NOT NULL,
-            pw_hash BLOB NOT NULL,
-            created_at INTEGER NOT NULL
-        );
-    """)
-    # Scores (för framtida leaderboard – kan användas direkt om ni vill)
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS scores(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            level INTEGER NOT NULL,
-            time_sec INTEGER NOT NULL,
-            created_at INTEGER NOT NULL,
-            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-        );
-    """)
-    conn.commit()
-    conn.close()
+    """Se till att pickle-filen finns och har rätt struktur."""
+    db = _load_db()
+    _save_db(db)
 
 def _hash_password(password: str, salt: bytes) -> bytes:
-    # PBKDF2-HMAC (standardbibliotek, bra nog för skolkurs/projekt)
     return hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 100_000)
 
 def create_user(username: str, password: str):
     username = username.strip()
     if len(username) < 3 or len(password) < 3:
         return False, "Användarnamn och lösenord måste vara minst 3 tecken."
-    conn = _connect()
-    try:
-        salt = secrets.token_bytes(16)
-        pw_hash = _hash_password(password, salt)
-        cur = conn.cursor()
-        cur.execute(
-            "INSERT INTO users(username, pw_salt, pw_hash, created_at) VALUES(?,?,?,?)",
-            (username, salt, pw_hash, int(time.time()))
-        )
-        conn.commit()
-        return True, {"user_id": cur.lastrowid}
-    except sqlite3.IntegrityError:
-        return False, "Användarnamnet är upptaget."
-    finally:
-        conn.close()
+    db = _load_db()
+    for u in db["users"]:
+        if u["username"] == username:
+            return False, "Användarnamnet är upptaget."
+    salt = secrets.token_bytes(16)
+    pw_hash = _hash_password(password, salt)
+    db["counters"]["users"] += 1
+    user_rec = {
+        "id": db["counters"]["users"],
+        "username": username,
+        "pw_salt": salt,
+        "pw_hash": pw_hash,
+        "created_at": int(time.time()),
+        "progress": []  # <- NYTT: lista av klarade länder
+    }
+    db["users"].append(user_rec)
+    _save_db(db)
+    return True, {"user_id": user_rec["id"]}
 
 def verify_user(username: str, password: str):
-    conn = _connect()
-    cur = conn.cursor()
-    cur.execute("SELECT id, pw_salt, pw_hash FROM users WHERE username=?", (username.strip(),))
-    row = cur.fetchone()
-    conn.close()
-    if not row:
-        return False, "Hittar inte användaren."
-    uid, salt, stored_hash = row
-    if _hash_password(password, salt) == stored_hash:
-        return True, {"user_id": uid}
-    return False, "Fel lösenord."
+    db = _load_db()
+    for u in db["users"]:
+        if u["username"] == username.strip():
+            if _hash_password(password, u["pw_salt"]) == u["pw_hash"]:
+                return True, {"user_id": u["id"]}
+            else:
+                return False, "Fel lösenord."
+    return False, "Hittar inte användaren."
 
 def record_score(user_id: int, level: int, time_sec: int):
-    conn = _connect()
-    cur = conn.cursor()
-    cur.execute(
-        "INSERT INTO scores(user_id, level, time_sec, created_at) VALUES(?,?,?,?)",
-        (user_id, level, time_sec, int(time.time()))
-    )
-    conn.commit()
-    conn.close()
+    db = _load_db()
+    db["counters"]["scores"] += 1
+    score_rec = {
+        "id": db["counters"]["scores"],
+        "user_id": int(user_id),
+        "level": int(level),
+        "time_sec": int(time_sec),
+        "created_at": int(time.time())
+    }
+    db["scores"].append(score_rec)
+    _save_db(db)
 
-def top_times(level: int, limit: int = 10):
-    conn = _connect()
-    cur = conn.cursor()
-    cur.execute("""
-        SELECT u.username, MIN(s.time_sec) AS best
-        FROM scores s JOIN users u ON u.id = s.user_id
-        WHERE s.level = ?
-        GROUP BY s.user_id
-        ORDER BY best ASC
-        LIMIT ?
-    """, (level, limit))
-    rows = cur.fetchall()
-    conn.close()
-    return rows
+def top_times(level: int, limit: int = 10) -> List[Tuple[str, int]]:
+    """[(username, best_time_sec), ...] sorterat på kortast tid."""
+    db = _load_db()
+    id2name = {u["id"]: u["username"] for u in db["users"]}
+    best_per_user = {}
+    for s in db["scores"]:
+        if s["level"] != int(level):
+            continue
+        uid = s["user_id"]
+        best = best_per_user.get(uid)
+        if best is None or s["time_sec"] < best:
+            best_per_user[uid] = s["time_sec"]
+    rows = [(id2name.get(uid, f"User {uid}"), best) for uid, best in best_per_user.items()]
+    rows.sort(key=lambda x: x[1])
+    return rows[:limit]
 
-# Modules/AuthDB.py  (utdrag/komplettering)
-def record_score(user_id: int, level: int, time_sec: int):
-    conn = _connect()
-    cur = conn.cursor()
-    cur.execute(
-        "INSERT INTO scores(user_id, level, time_sec, created_at) VALUES(?,?,?,?)",
-        (user_id, level, time_sec, int(time.time()))
-    )
-    conn.commit()
-    conn.close()
+# ---------- NYTT: Progress/land-logik ----------
+def add_country_progress(user_id: int, country_id: str) -> bool:
+    """Markera att användaren har klarat ett land (låser upp knappen)."""
+    db = _load_db()
+    for u in db["users"]:
+        if u["id"] == int(user_id):
+            if country_id not in u["progress"]:
+                u["progress"].append(country_id)
+            _save_db(db)
+            return True
+    return False
 
-def top_times(level: int, limit: int = 10):
-    conn = _connect()
-    cur = conn.cursor()
-    cur.execute("""
-        SELECT u.username, MIN(s.time_sec) AS best
-        FROM scores s JOIN users u ON u.id = s.user_id
-        WHERE s.level = ?
-        GROUP BY s.user_id
-        ORDER BY best ASC
-        LIMIT ?
-    """, (level, limit))
-    rows = cur.fetchall()
-    conn.close()
-    return rows  # [("Nahom Yared", 102), ...]
+def remove_country_progress(user_id: int, country_id: str) -> bool:
+    db = _load_db()
+    for u in db["users"]:
+        if u["id"] == int(user_id):
+            if country_id in u["progress"]:
+                u["progress"].remove(country_id)
+            _save_db(db)
+            return True
+    return False
 
+def get_progress(user_id: int) -> List[str]:
+    db = _load_db()
+    for u in db["users"]:
+        if u["id"] == int(user_id):
+            return list(u.get("progress", []))
+    return []
+
+def has_access(user_id: int, country_id: str) -> bool:
+    """True om landet är klarat/olåst, annars röd/disabled i UI:t."""
+    db = _load_db()
+    for u in db["users"]:
+        if u["id"] == int(user_id):
+            return country_id in u.get("progress", [])
+    return False
+
+# Hjälp: hämta user_id från användarnamn (så vi slipper ändra i login.py)
+def user_id_by_username(username: str) -> Optional[int]:
+    db = _load_db()
+    for u in db["users"]:
+        if u["username"] == username.strip():
+            return u["id"]
+    return None
