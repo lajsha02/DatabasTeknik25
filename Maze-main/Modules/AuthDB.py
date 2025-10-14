@@ -1,15 +1,17 @@
-# Modules/AuthDB.py (pickle-based storage + per-user progress)
+# Modules/AuthDB.py (vår pickle-baserade lagring)
 import os, hashlib, secrets, time, pickle
 from typing import List, Tuple, Optional
 
-# Behåll samma namn men byt till pickle-fil
 DB_PATH = "data/game.pickle"
 
-# ---------- Intern hjälp ----------
 def _ensure_dir():
     os.makedirs("data", exist_ok=True)
 
 def _default_db():
+    """ Vår "databas" som en Python-dict:
+    - users:     lista av användare
+    - scores:    lista av resultat
+    - counters:  enkla räknare för användarid)"""
     return {"users": [], "scores": [], "counters": {"users": 0, "scores": 0}}
 
 def _load_db():
@@ -18,34 +20,37 @@ def _load_db():
         return _default_db()
     with open(DB_PATH, "rb") as f:
         db = pickle.load(f)
-    # Framåtkompatibilitet
+    # Säkerställ att alla nycklar finns (om vi ändrar struktur senare)
     if "users" not in db: db["users"] = []
     if "scores" not in db: db["scores"] = []
     if "counters" not in db: db["counters"] = {"users": 0, "scores": 0}
-    # Säkerställ progress på alla users
+    # Alla användare ska alltid ha en progress-lista (vilka länder som är klara)
     for u in db["users"]:
         if "progress" not in u:
             u["progress"] = []
     return db
 
 def _save_db(db):
+    """ Sparar hela databasen (dict) till fil """
     with open(DB_PATH, "wb") as f:
         pickle.dump(db, f)
 
-# Bibehållen signatur – gör inget i pickle-läget
+# Finns kvar för API kompatibilitet mot vår andra SQL-version (gör inget nu i pickle versionen)
 def _connect():
     return None
 
-# ---------- Publika API:t (oförändrade funktionsnamn) ----------
+#  Publika API:t för användarhantering, resultat och progress
 def init_db():
-    """Se till att pickle-filen finns och har rätt struktur."""
+    """Initierar filen om den saknas, så resten av koden kan anta rätt struktur."""
     db = _load_db()
     _save_db(db)
 
 def _hash_password(password: str, salt: bytes) -> bytes:
+    """ Returnerar en hash av lösenordet med angivet salt """
     return hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 100_000)
 
 def create_user(username: str, password: str):
+    """ Skapa användare: unikt namn, spara salt + hash + tom progress"""
     username = username.strip()
     if len(username) < 3 or len(password) < 3:
         return False, "Användarnamn och lösenord måste vara minst 3 tecken."
@@ -62,13 +67,14 @@ def create_user(username: str, password: str):
         "pw_salt": salt,
         "pw_hash": pw_hash,
         "created_at": int(time.time()),
-        "progress": []  # <- NYTT: lista av klarade länder
+        "progress": []  # här lagrar vi vilka länder spelaren låst upp
     }
     db["users"].append(user_rec)
     _save_db(db)
     return True, {"user_id": user_rec["id"]}
 
 def verify_user(username: str, password: str):
+    # autentiserar genom att hasha inmatningen med lagrat salt och jämför med hash
     db = _load_db()
     for u in db["users"]:
         if u["username"] == username.strip():
@@ -79,6 +85,7 @@ def verify_user(username: str, password: str):
     return False, "Hittar inte användaren."
 
 def record_score(user_id: int, level: int, time_sec: int):
+    """ Spara ett resultat. används för leaderboard-logik."""
     db = _load_db()
     db["counters"]["scores"] += 1
     score_rec = {
@@ -92,7 +99,7 @@ def record_score(user_id: int, level: int, time_sec: int):
     _save_db(db)
 
 def top_times(level: int, limit: int = 10) -> List[Tuple[str, int]]:
-    """[(username, best_time_sec), ...] sorterat på kortast tid."""
+    """Returnerar [(username, bästa_tid)] för vald level, sorterat snabbast först."""
     db = _load_db()
     id2name = {u["id"]: u["username"] for u in db["users"]}
     best_per_user = {}
@@ -107,9 +114,9 @@ def top_times(level: int, limit: int = 10) -> List[Tuple[str, int]]:
     rows.sort(key=lambda x: x[1])
     return rows[:limit]
 
-# ---------- NYTT: Progress/land-logik ----------
+#Progress/land-logik
 def add_country_progress(user_id: int, country_id: str) -> bool:
-    """Markera att användaren har klarat ett land (låser upp knappen)."""
+    """Markera att användaren klarat ett land (används för upplåsning i UI)"""
     db = _load_db()
     for u in db["users"]:
         if u["id"] == int(user_id):
@@ -120,6 +127,7 @@ def add_country_progress(user_id: int, country_id: str) -> bool:
     return False
 
 def remove_country_progress(user_id: int, country_id: str) -> bool:
+    # Smidig för återställning/testfall när vi vill låsa om ett land.
     db = _load_db()
     for u in db["users"]:
         if u["id"] == int(user_id):
@@ -130,6 +138,7 @@ def remove_country_progress(user_id: int, country_id: str) -> bool:
     return False
 
 def get_progress(user_id: int) -> List[str]:
+    """Hämtas av game.py för att rita rätt (öppna/låsta) land-knappar"""
     db = _load_db()
     for u in db["users"]:
         if u["id"] == int(user_id):
@@ -137,17 +146,20 @@ def get_progress(user_id: int) -> List[str]:
     return []
 
 def has_access(user_id: int, country_id: str) -> bool:
-    """True om landet är klarat/olåst, annars röd/disabled i UI:t."""
+    """True om landet finns i spelarens progress (annars visas lås-ikon i UI:t)"""
     db = _load_db()
     for u in db["users"]:
         if u["id"] == int(user_id):
             return country_id in u.get("progress", [])
     return False
 
-# Hjälp: hämta user_id från användarnamn (så vi slipper ändra i login.py)
+# hjälpfunktion för att kunna slå upp id från användarnamn utan att röra loginflödet.
 def user_id_by_username(username: str) -> Optional[int]:
     db = _load_db()
     for u in db["users"]:
         if u["username"] == username.strip():
             return u["id"]
     return None
+
+
+
