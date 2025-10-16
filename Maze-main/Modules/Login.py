@@ -80,10 +80,21 @@ class Login:
         if ok:
             self.message = "Konto skapat! Logga in nu."
             self.mode = "login"
-            if self.button_sound: 
+            self.btn_submit = MainMenu.MainMenuButton(
+                self.screen, "LOGGA IN",
+                self.buttons_font_inactive, self.buttons_font_active,
+                self.button_image, self.btn_submit.ButtonPos, self.button_sound
+            )
+            self.btn_toggle = MainMenu.MainMenuButton(
+                self.screen, "SIGN UP",
+                self.buttons_font_inactive, self.buttons_font_active,
+                self.button_image, self.btn_toggle.ButtonPos, self.button_sound
+            )
+            if self.button_sound:
                 self.button_sound.play()
         else:
             self.message = str(data)
+
 
     def update(self, events, mouse_pos):
         submitted_by_enter = False
