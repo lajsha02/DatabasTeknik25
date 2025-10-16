@@ -2,7 +2,7 @@ import pygame
 
 
 class HighScores:
-    def __init__(self, screen: pygame.Surface, HighScoresFileAddress: str, HighScoresFont: pygame.Font):
+    def __init__(self, screen: pygame.Surface, HighScoresFileAddress: str, HighScoresFont: pygame.font):
         self.is_active = False
         self.screen = screen
         self.File = HighScoresFileAddress
